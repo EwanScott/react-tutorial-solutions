@@ -1,0 +1,250 @@
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import './index.css';
+
+function Square(props) {
+    return (
+      <button className={props.winLine}  onClick={props.updateState}>
+        {props.value}
+      </button>
+    );
+  }
+  
+  class Board extends React.Component {
+    winSquares(i){
+      if (this.props.winLine.length > 0) {
+        if (this.props.winLine.indexOf(i) > -1) {
+          return "square winLine";
+        } else {
+          return "square";
+        }
+      } else {
+        return "square";
+      }
+    };
+    
+    renderSquare(i) {
+      let fontColour = this.winSquares(i);
+      return (
+        <Square
+          key={i}
+          winLine={fontColour}
+          value={this.props.squares[i]}
+          updateState={() => this.props.onClick(i)}
+        />
+      );
+    }
+
+    createRow = (index, max) => {
+      let rows = [];
+  
+      for (index; index < max; index++) {
+        rows.push(this.renderSquare(index));
+      }
+      return rows;
+    };
+
+    /**
+     * create 9 squares
+     */
+    createBoard = (columns, rows) => {
+      let board = [];
+  
+      for (let i = 0; i < columns * rows; i++) {
+        if (i % columns === 0) {
+          board.push(
+            <div className="board-row" key={i}>
+              {this.createRow(i, i + columns)}
+            </div>
+          );
+        }
+      }
+      return board;
+    };
+  
+    render() {
+      return (
+        <div>
+          <div>{this.createBoard(3, 3)}</div>
+        </div>
+      );
+    }
+  }
+  
+  class Game extends React.Component {
+    constructor(props) {
+      super(props);
+      this.state = {
+        history: [{
+          squares: Array(9).fill(null),
+          location: {
+            col: 0,
+            row: 0
+          },
+        }],
+        active: false,
+        stepNumber: 0,
+        xIsNext: true,
+        toggle:false
+      };
+    }
+  
+    handleClick(i) {
+      const history = this.state.history.slice(0, this.state.stepNumber + 1);
+      const current = history[history.length - 1];
+      const squares = current.squares.slice();
+      const columns = 3;
+
+      const col = Math.floor(i % columns) + 1;
+      const row = Math.floor(i / columns) + 1;
+
+      if (calculateWinner(squares) || squares[i]) {
+        return;
+      }
+      squares[i] = this.state.xIsNext ? 'x' : 'o';
+
+      this.setState({
+        history: history.concat([{
+          squares: squares,
+                    location: {
+            col: col,
+            row: row
+          },
+        }]),
+        active: false,
+        stepNumber: history.length,
+        xIsNext: !this.state.xIsNext,
+      });
+    }
+
+    jumpTo(step) {
+      let history = this.state.history;
+
+      history.forEach(item => {
+        item.active = false;
+      });
+  
+      history[step].active = true;
+      this.setState({stepNumber:step, xIsNext: (step % 2) === 0,});
+    }
+
+    toggleMoves() {
+      const toggle = !this.state.toggle;
+      this.setState({
+        toggle: toggle
+      });
+    };
+  
+    render() {
+      const history = this.state.history;
+      const current = history[this.state.stepNumber];
+      const winner = calculateWinner(current.squares);
+      const gameStatus = winner && winner.status ? winner.status : null;
+      const moves = history.map((step, move) => {
+        const desc = move ?
+          'Go to move ' : 'Go to empty grid';
+
+        let active = "";
+        if (step.active) {
+          active = "active";
+        } else {
+          active = "inactive"
+        }
+
+        return (
+          <li key={move}>
+            {move > 0 &&
+            <button
+              className={active}
+              key={`${step.location.col}_${step.location.row}`} 
+              onClick={() => this.jumpTo(move)}>
+              {`${desc} (${step.location.col}, ${step.location.row})`}
+            </button>
+            }
+            {move === 0 &&
+            <button
+              className={active}
+              key={`${step.location.col}_${step.location.row}`} 
+              onClick={() => this.jumpTo(move)}>
+              {`${desc}`}
+            </button>
+            }
+          </li> 
+        );
+      });
+  
+      moves.sort((a, b) => {
+        if (this.state.toggle) {
+          return b.key - a.key;
+        } else {
+          return a.key - b.key;
+        }
+      });
+
+      let status;
+      if (winner) {
+        status = `Winner: ${winner.win.winner}`;
+      } 
+      else if (this.state.stepNumber === 9){
+        status = 'Draw';
+      }
+      else {
+        status = 'Next player: ' + (this.state.xIsNext ? 'X' : 'O');
+      }
+  
+      return (
+        <div className="game">
+          <div className="game-board">
+            <Board
+              squares={current.squares}
+              winLine={gameStatus === "win" ? winner.win.squares : []}
+              onClick={(i) => this.handleClick(i)}
+            />
+            <div><br /></div>
+            <div className="active">{status}</div>
+          </div>
+          <div className="game-info">
+              {
+                history.length > 1 ? (
+                <button onClick={() => this.toggleMoves()}>Toggle moves</button>
+                ) : ("")
+              }
+            <ol>{moves}</ol>
+          </div>
+        </div>
+      );
+    }
+  }
+  
+  // ========================================
+  
+  const root = ReactDOM.createRoot(document.getElementById("root"));
+  root.render(<Game />);
+  
+  function calculateWinner(squares) {
+    const lines = [
+      [0, 1, 2],
+      [3, 4, 5],
+      [6, 7, 8],
+      [0, 3, 6],
+      [1, 4, 7],
+      [2, 5, 8],
+      [0, 4, 8],
+      [2, 4, 6],
+    ];
+    let result = {
+      status: "",
+      win: {}
+    };
+    for (let i = 0; i < lines.length; i++) {
+      const [a, b, c] = lines[i];
+      if (squares[a] && squares[a] === squares[b] && squares[a] === squares[c]) {
+        result = {
+          status: "win",
+          win: { winner: squares[a].toUpperCase(), squares: [a, b, c] }
+        };
+        return result;
+      }
+    }
+    return null;
+  }
